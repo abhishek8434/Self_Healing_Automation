@@ -166,8 +166,3 @@ Stores successful locators in `ai_locators.json`:
 3. Commit changes
 4. Push to branch
 5. Create Pull Request
-
-## License
-MIT License
-
-This README provides comprehensive documentation of your self-healing automation framework, including setup instructions, usage examples, and implementation details. The content is based on your actual project structure and implementation.
