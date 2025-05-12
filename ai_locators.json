@@ -1,28 +1,18 @@
 {
-  "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#submit1\"}, {\"type\": \"xpath\", \"value\": \"(//button[normalize-space()='Submit'])[2]\"}, {\"type\": \"name\", \"value\": \"submit\"}], \"primary\": {\"type\": \"id\", \"value\": \"submit1\"}}": [
+  "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#username1\"}, {\"type\": \"xpath\", \"value\": \"/html/body/div[1]/div/section/section/div[1]/div[1]/input1\"}, {\"type\": \"name\", \"value\": \"username1\"}], \"primary\": {\"type\": \"id\", \"value\": \"username1\"}}": [
     {
       "type": "css selector",
-      "value": "button[type=\"submit\"]",
-      "success": false,
-      "timestamp": "2025-05-12 12:57:02.531951"
-    },
-    {
-      "type": "css selector",
-      "value": "button[type=\"submit\"]",
-      "success": false,
-      "timestamp": "2025-05-12 13:03:29.733975"
-    },
-    {
-      "type": "css selector",
-      "value": ".btn-primary",
-      "success": false,
-      "timestamp": "2025-05-12 13:03:29.788690"
-    },
-    {
-      "type": "xpath",
-      "value": "//button[contains(text(),\"Submit\")]",
+      "value": "input[type=\"text\"]",
       "success": true,
-      "timestamp": "2025-05-12 13:03:29.899004"
+      "timestamp": "2025-05-12 19:15:13.626394"
+    }
+  ],
+  "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#password1\"}, {\"type\": \"xpath\", \"value\": \"/html/body/div[1]/div/section/section/div[1]/div[2]/input1\"}, {\"type\": \"name\", \"value\": \"password1\"}], \"primary\": {\"type\": \"id\", \"value\": \"password1\"}}": [
+    {
+      "type": "css selector",
+      "value": "input[type=\"password\"]",
+      "success": true,
+      "timestamp": "2025-05-12 19:15:15.902235"
     }
   ]
 }

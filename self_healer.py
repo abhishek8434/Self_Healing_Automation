@@ -37,8 +37,18 @@ class SelfHealer:
             print(f"[WARNING] Could not save AI locators: {e}")
 
     def _get_locator_key(self, locators):
-        # Create a unique key based on the failed locators
-        return json.dumps(locators, sort_keys=True)
+        # Create a simplified key structure
+        key_data = {
+            "primary": {
+                "type": str(locators["primary"]["type"]).lower(),
+                "value": locators["primary"]["value"]
+            },
+            "fallbacks": [{
+                "type": str(fb["type"]).lower(),
+                "value": fb["value"]
+            } for fb in locators.get("fallbacks", [])]
+        }
+        return json.dumps(key_data, sort_keys=True)
 
     def find_element(self, locators):
         # Try primary locator first
@@ -86,100 +96,70 @@ class SelfHealer:
         return self.driver.find_element(locator_type, locator_value)
 
     def _ai_heal(self, locators):
-        # Use OpenAI API to suggest a better locator
-        example_json = '{"type": "css selector", "value": "button[type=\"submit\"]"}'  # Use escaped double quotes
-        prompt = f"""Analyze this webpage and suggest working locators for a button element.
-Previous failed attempts: {locators}
-
-Return ONLY a JSON object in this exact format (use double quotes and escape inner quotes with \\) WITHOUT any line breaks or extra spaces:
-{example_json}
-
-Suggest robust locators like:
-- CSS: button[type=\"submit\"], .login-button, .btn-primary
-- XPath: //button[contains(@class,\"submit\")], //input[@type=\"submit\"]"""
+        # Determine element type from existing locators
+        element_type = "input" if any("input" in str(loc["value"]).lower() for loc in locators.get("fallbacks", [])) else "button"
+        
+        example_json = '{"type": "css selector", "value": "' + ("input[type=\"text\"]" if element_type == "input" else "button[type=\"submit\"]") + '"}'  
+        
+        prompt = f"""Analyze this webpage and suggest working locators for a {element_type} element.
+    Previous failed attempts: {locators}
+    
+    Return ONLY a JSON object in this exact format (use double quotes and escape inner quotes with \\) WITHOUT any line breaks or extra spaces:
+    {example_json}
+    
+    Suggest robust locators like:
+    - CSS: {element_type}[type=\"text\"], .{element_type}-field
+    - XPath: //{element_type}[@type='text'], //{element_type}[contains(@class,'field')]"""
 
         try:
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=300  # Increase this to capture more context
             )
             suggestion = response.choices[0].message.content.strip()
-            print(f"[INFO] AI Suggestion: {suggestion}")
-            
-            # Parse and try the AI suggestion
-            try:
-                # Clean up the suggestion but preserve necessary spaces
-                suggestion = ' '.join(suggestion.split())  # Normalize spaces instead of removing them
-                if suggestion.startswith("{") and suggestion.endswith("}"):
-                    # Replace single quotes with escaped double quotes
-                    suggestion = suggestion.replace("'", '"')
-                
-                suggested_locator = json.loads(suggestion)
-                if isinstance(suggested_locator, dict) and 'type' in suggested_locator and 'value' in suggested_locator:
+
+            # Parse and validate the suggestion
+            suggested_locator = json.loads(suggestion)
+            if 'type' in suggested_locator and 'value' in suggested_locator:
+                locator_type = self._convert_locator_type(suggested_locator['type'])
+                if locator_type:
                     print(f"[INFO] Trying AI suggested locator: {suggested_locator}")
-                    # Convert string locator type to Selenium By class
-                    locator_type = {
-                        'css selector': By.CSS_SELECTOR,
-                        'css': By.CSS_SELECTOR,  # Add alias
-                        'xpath': By.XPATH,
-                        'id': By.ID,
-                        'name': By.NAME,
-                        'class name': By.CLASS_NAME,
-                        'tag name': By.TAG_NAME,
-                        'link text': By.LINK_TEXT,
-                        'partial link text': By.PARTIAL_LINK_TEXT
-                    }.get(suggested_locator['type'].lower().strip())
+                    element = self.driver.find_element(locator_type, suggested_locator['value'])
                     
-                    if locator_type:
-                        # Save the suggestion before trying it
-                        locator_key = self._get_locator_key(locators)
-                        if locator_key not in self.ai_locators:
-                            self.ai_locators[locator_key] = []
-                        
-                        # Try multiple alternative locators
-                        alternative_locators = [
-                            {'type': 'css selector', 'value': 'button[type="submit"]'},
-                            {'type': 'css selector', 'value': '.btn-primary'},
-                            {'type': 'xpath', 'value': '//button[contains(text(),"Submit")]'},
-                            {'type': 'xpath', 'value': '//input[@type="submit"]'},
-                            # Add the AI suggested locator as well
-                            {'type': locator_type, 'value': suggested_locator['value']}
-                        ]
-                        
-                        for alt_locator in alternative_locators:
-                            try:
-                                print(f"[INFO] Trying alternative locator: {alt_locator}")
-                                element = self._find(alt_locator)
-                                # Mark as successful if element is found
-                                new_suggestion = {
-                                    'type': alt_locator['type'],
-                                    'value': alt_locator['value'],
-                                    'success': True,
-                                    'timestamp': str(datetime.datetime.now())
-                                }
-                                self.ai_locators[locator_key].append(new_suggestion)
-                                self._save_ai_locators()
-                                return element
-                            except NoSuchElementException:
-                                print(f"[WARNING] Alternative locator failed: {alt_locator}")
-                                # Save the failed attempt too
-                                new_suggestion = {
-                                    'type': alt_locator['type'],
-                                    'value': alt_locator['value'],
-                                    'success': False,
-                                    'timestamp': str(datetime.datetime.now())
-                                }
-                                self.ai_locators[locator_key].append(new_suggestion)
-                                self._save_ai_locators()
-                                continue
-                    else:
-                        print(f"[WARNING] Unknown locator type: {suggested_locator['type']}")
-            except (json.JSONDecodeError, KeyError) as e:
-                print(f"[WARNING] Could not parse AI suggestion: {e}")
-                
+                    # Save the successful locator
+                    locator_key = self._get_locator_key(locators)
+                    self.ai_locators.setdefault(locator_key, []).append({
+                        'type': suggested_locator['type'],
+                        'value': suggested_locator['value'],
+                        'success': True,
+                        'timestamp': str(datetime.datetime.now())
+                    })
+                    self._save_ai_locators()
+                    return element
+                else:
+                    print(f"[WARNING] Unknown locator type: {suggested_locator['type']}")
+            else:
+                print(f"[WARNING] AI suggestion missing 'type' or 'value': {suggested_locator}")
+
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] Failed to parse AI suggestion: {e}")
         except Exception as e:
-            print(f"[WARNING] AI healing attempt failed: {e}")
-        
-        raise NoSuchElementException("Element not found even after trying multiple AI healing strategies.")
+            print(f"[ERROR] AI healing attempt failed: {e}")
+
+        raise NoSuchElementException("Element not found even after AI healing attempt.")
+
+    def _convert_locator_type(self, locator_type):
+        return {
+            'css selector': By.CSS_SELECTOR,
+            'xpath': By.XPATH,
+            'id': By.ID,
+            'name': By.NAME,
+            'class name': By.CLASS_NAME,
+            'tag name': By.TAG_NAME,
+            'link text': By.LINK_TEXT,
+            'partial link text': By.PARTIAL_LINK_TEXT,
+            'css': By.CSS_SELECTOR,
+            'xpath expression': By.XPATH
+        }.get(locator_type.lower().strip(), None)
