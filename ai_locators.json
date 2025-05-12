@@ -1,0 +1,28 @@
+{
+  "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#submit1\"}, {\"type\": \"xpath\", \"value\": \"(//button[normalize-space()='Submit'])[2]\"}, {\"type\": \"name\", \"value\": \"submit\"}], \"primary\": {\"type\": \"id\", \"value\": \"submit1\"}}": [
+    {
+      "type": "css selector",
+      "value": "button[type=\"submit\"]",
+      "success": false,
+      "timestamp": "2025-05-12 12:57:02.531951"
+    },
+    {
+      "type": "css selector",
+      "value": "button[type=\"submit\"]",
+      "success": false,
+      "timestamp": "2025-05-12 13:03:29.733975"
+    },
+    {
+      "type": "css selector",
+      "value": ".btn-primary",
+      "success": false,
+      "timestamp": "2025-05-12 13:03:29.788690"
+    },
+    {
+      "type": "xpath",
+      "value": "//button[contains(text(),\"Submit\")]",
+      "success": true,
+      "timestamp": "2025-05-12 13:03:29.899004"
+    }
+  ]
+}
