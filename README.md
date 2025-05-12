@@ -44,6 +44,7 @@ self_healing_automation/
 ```bash
 python -m venv venv
 .\venv\Scripts\activate
+```
 
 2. Install dependencies:
 ```bash
