@@ -176,6 +176,44 @@ class SelfHealer:
                 pass
             return self.driver.find_element(locator["type"], locator["value"])
 
+    def _get_field_info(self, locators: Dict) -> Dict:
+        field_info = {
+            'type': 'unknown',
+            'input_type': 'unknown',
+            'context': ''
+        }
+        
+        # Analyze primary and fallback locators
+        all_locators = [locators['primary']] + locators.get('fallbacks', [])
+        for loc in all_locators:
+            value = str(loc['value']).lower()
+            
+            # Check for button/submit indicators
+            if any(x in value for x in ['button', 'submit', 'login', 'sign in']):
+                field_info['type'] = 'button'
+                field_info['input_type'] = 'submit'
+                break
+            
+            # Check for username/email indicators
+            elif any(x in value for x in ['user', 'email', 'login']):
+                field_info['type'] = 'input'
+                field_info['input_type'] = 'text'
+                break
+            
+            # Check for password indicators
+            elif 'password' in value:
+                field_info['type'] = 'input'
+                field_info['input_type'] = 'password'
+                break
+        
+        # Get surrounding context
+        try:
+            field_info['context'] = self._analyze_page_context()
+        except:
+            pass
+        
+        return field_info
+
     def _ai_heal(self, locators: Dict) -> object:
         page_source = self.driver.page_source
         current_url = self.driver.current_url
@@ -183,49 +221,45 @@ class SelfHealer:
         # Determine field type and context
         field_info = self._get_field_info(locators)
         
-        # Extract relevant HTML context with more details
-        html_context = self._get_enhanced_context()
-        
-        prompt = f"""Analyze this login page and find the submit button, ignoring any previous locator attempts.
-            Page context: {html_context}
+        # Create field-specific prompts
+        if field_info['type'] == 'input':
+            if field_info['input_type'] == 'password':
+                prompt = """Find the password input field on this login page. Look for:
+                1. input[type='password']
+                2. Common password field patterns (name='password', id contains 'password')
+                3. Input field with password-related attributes"""
+            else:  # username/email
+                prompt = """Find the username/email input field on this login page. Look for:
+                1. input[type='text'] or input[type='email']
+                2. Common login field patterns (name/id contains 'username', 'email', 'login', 'user')
+                3. First input field in the login form that's not password"""
+        else:  # button
+            prompt = """Find the submit/login button on this page. Look for:
+                1. button[type='submit']
+                2. input[type='submit']
+                3. Button with text containing 'Login', 'Sign in', 'Submit'
+                4. Common button classes ('login-btn', 'submit-button')"""
 
-            Provide simple, reliable locators in this order:
-            1. Basic button locators (type='submit')
-            2. Text-based locators ('Submit', 'Login')
-            3. Common class patterns ('submit-btn', 'login-button')
-            """
+        # Add page context
+        prompt += f"\nPage URL: {current_url}\nRelevant HTML context: {self._get_enhanced_context()}"
 
         try:
             response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a locator generator. Only respond with valid JSON arrays containing locator objects with 'type' and 'value' fields."},
+                    {"role": "system", "content": "You are a locator generator. Respond with a JSON array of locator objects, each containing 'type' and 'value' fields. Start with the most specific locators."}, 
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,  # Lower temperature for more consistent JSON formatting
-                max_tokens=500
+                temperature=0.3
             )
             
-            # Clean and validate the response
-            response_text = response.choices[0].message.content.strip()
-            if not response_text.startswith('[') or not response_text.endswith(']'):
-                raise json.JSONDecodeError("Invalid JSON format", response_text, 0)
-                
-            suggestions = json.loads(response_text)
+            # Process response and try locators
+            suggestions = json.loads(response.choices[0].message.content.strip())
             
-            if not isinstance(suggestions, list):
-                raise json.JSONDecodeError("Response is not a JSON array", response_text, 0)
-
-            # Try each suggested locator
             for suggestion in suggestions:
                 try:
-                    if not isinstance(suggestion, dict) or 'type' not in suggestion or 'value' not in suggestion:
-                        log_warning(f"Invalid locator format in suggestion: {suggestion}")
-                        continue
-
                     locator_type = self._convert_locator_type(suggestion['type'])
                     if not locator_type:
-                        log_warning(f"Unknown locator type: {suggestion['type']}")
                         continue
 
                     log_info(f"Trying AI suggested locator: {suggestion}")
@@ -236,30 +270,16 @@ class SelfHealer:
 
                     if element:
                         # Save successful locator
-                        locator_key = self._get_locator_key(locators)
-                        self.ai_locators.setdefault(locator_key, []).append({
-                            'type': suggestion['type'],
-                            'value': suggestion['value'],
-                            'success': True,
-                            'timestamp': datetime.datetime.now().isoformat(),
-                            'url': current_url
-                        })
-                        self._save_ai_locators()
+                        self._save_successful_locator(locators, suggestion, current_url)  # Fixed: using locators instead of original_locators
                         return element
 
                 except Exception as e:
                     log_warning(f"Failed to use suggested locator: {suggestion}, Error: {e}")
                     continue
 
-        except json.JSONDecodeError as e:
-            log_error(f"Failed to parse AI suggestions: {e}")
-            log_error(f"Raw response: {response.choices[0].message.content if 'response' in locals() else 'No response'}")
         except Exception as e:
             log_error(f"AI healing attempt failed: {e}")
 
-        # Cleanup old locators periodically
-        self._cleanup_old_locators()
-        
         raise NoSuchElementException("Element not found even after AI healing attempt.")
 
     def _get_enhanced_context(self) -> str:
@@ -276,18 +296,6 @@ class SelfHealer:
             context += parent.get_attribute("outerHTML") + "\n"
         return context
 
-    def _get_field_info(self, locators: Dict) -> Dict:
-            # Initialize default values
-            field_info = {
-                'type': 'input',  # Default to input
-                'input_type': 'text',  # Default to text
-                'name': '',
-                'label': '',
-                'placeholder': '',
-                'context': ''
-            }
-    
-
     def _convert_locator_type(self, locator_type: str) -> Optional[str]:
         """Convert string locator type to Selenium By class attribute."""
         return {
@@ -302,3 +310,36 @@ class SelfHealer:
             'css': By.CSS_SELECTOR,  # alias
             'xpath expression': By.XPATH  # alias
         }.get(locator_type.lower().strip())
+
+    def _save_successful_locator(self, original_locators: Dict, successful_locator: Dict, current_url: str) -> None:
+        """Save a successful AI-suggested locator for future use."""
+        try:
+            locator_key = self._get_locator_key(original_locators)
+            
+            # Create new locator entry
+            new_locator = {
+                'type': successful_locator['type'],
+                'value': successful_locator['value'],
+                'success': True,
+                'timestamp': datetime.datetime.now().isoformat(),
+                'url': current_url
+            }
+            
+            # Add to existing locators or create new entry
+            if locator_key in self.ai_locators:
+                # Check if this locator already exists
+                exists = any(
+                    loc['type'] == successful_locator['type'] and 
+                    loc['value'] == successful_locator['value']
+                    for loc in self.ai_locators[locator_key]
+                )
+                if not exists:
+                    self.ai_locators[locator_key].append(new_locator)
+            else:
+                self.ai_locators[locator_key] = [new_locator]
+            
+            # Save to file
+            self._save_ai_locators()
+            
+        except Exception as e:
+            log_warning(f"Failed to save successful locator: {e}")

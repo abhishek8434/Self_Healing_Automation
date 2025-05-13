@@ -1,35 +1,42 @@
 {
   "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#username1\"}, {\"type\": \"xpath\", \"value\": \"/html/body/div[1]/div/section/section/div[1]/div[1]/input1\"}, {\"type\": \"name\", \"value\": \"username1\"}], \"primary\": {\"type\": \"id\", \"value\": \"username1\"}}": [
     {
-      "type": "xpath",
-      "value": "//label[contains(text(), 'Username')]//following::input",
+      "type": "css selector",
+      "value": "input[type='text'][name='username']",
       "success": true,
-      "timestamp": "2025-05-13T12:32:55.341452",
-      "url": "https://practicetestautomation.com/practice-test-login/"
+      "timestamp": "2025-05-13T16:41:58.805293",
+      "url": "https://mrpdev.eatanceapp.com/backoffice/home"
     }
   ],
   "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#password1\"}, {\"type\": \"xpath\", \"value\": \"/html/body/div[1]/div/section/section/div[1]/div[2]/input1\"}, {\"type\": \"name\", \"value\": \"password1\"}], \"primary\": {\"type\": \"id\", \"value\": \"password1\"}}": [
     {
-      "type": "xpath",
-      "value": "//label[contains(text(), 'Password')]//following::input",
+      "type": "css selector",
+      "value": "input[type='password']",
       "success": true,
-      "timestamp": "2025-05-13T12:33:58.844698",
-      "url": "https://practicetestautomation.com/practice-test-login/"
+      "timestamp": "2025-05-13T16:43:27.418228",
+      "url": "https://mrpdev.eatanceapp.com/backoffice/home"
     }
   ],
   "{\"fallbacks\": [{\"type\": \"css selector\", \"value\": \"#submit1\"}, {\"type\": \"xpath\", \"value\": \"(//button[normalize-space()='Submit'])[2]\"}, {\"type\": \"name\", \"value\": \"submit1\"}], \"primary\": {\"type\": \"id\", \"value\": \"submit1\"}}": [
     {
+      "type": "css selector",
+      "value": "input[type='submit']",
+      "success": true,
+      "timestamp": "2025-05-13T16:44:15.157289",
+      "url": "https://mrpdev.eatanceapp.com/backoffice/home"
+    },
+    {
       "type": "id",
       "value": "submit",
       "success": true,
-      "timestamp": "2025-05-13T12:52:26.448938",
+      "timestamp": "2025-05-13T16:47:37.988442",
       "url": "https://practicetestautomation.com/practice-test-login/"
     },
     {
-      "type": "css selector",
+      "type": "css",
       "value": "button[type='submit']",
       "success": true,
-      "timestamp": "2025-05-13T13:02:54.439512",
+      "timestamp": "2025-05-13T16:52:23.665076",
       "url": "https://practice.expandtesting.com/login"
     }
   ]
