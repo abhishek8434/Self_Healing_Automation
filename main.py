@@ -14,44 +14,45 @@ logging.basicConfig(level=logging.INFO)
 def main():
     driver = webdriver.Chrome()
     
-    driver.get("https://practicetestautomation.com/practice-test-login/")
-    
-    healer = SelfHealer(driver)
-    
     try:
+        driver.get("https://practicetestautomation.com/practice-test-login/")
+        # driver.get("https://practice.expandtesting.com/login")
+        healer = SelfHealer(driver)
+        
         # Enter username
         username_field = healer.find_element(Locators.USERNAME_FIELD)
-        if username_field:
-            username_field.send_keys("student")
-            logging.info("Entered username successfully.")
+        username_field.send_keys("student")
+        # username_field.send_keys("practice")
+        logging.info("Entered username successfully.")
 
         # Enter password
         password_field = healer.find_element(Locators.PASSWORD_FIELD)
-        if password_field:
-            password_field.send_keys("Password123")
-            logging.info("Entered password successfully.")
+        password_field.send_keys("Password123")
+        # password_field.send_keys("SuperSecretPassword!")
+        logging.info("Entered password successfully.")
 
         # Click login button
         login_button = healer.find_element(Locators.LOGIN_BUTTON)
-        if login_button:
-            login_button.click()
-            logging.info("Login button clicked successfully.")
+        login_button.click()
+        logging.info("Login button clicked successfully.")
+        
+        time.sleep(2)  # Give page time to load
+        logging.info(f"Current URL: {driver.current_url}")  # Log the current URL
+        logging.info(f"Page title: {driver.title}") # Wait for 3 seconds to observe the page after login
 
         # Validate successful login
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "h1")))
         success_message = driver.find_element(By.TAG_NAME, "h1").text
+        logging.info(f"Found message: {success_message}")  # Add this line to see what text was found
         if "Logged In Successfully" in success_message:
             logging.info("Login successful!")
+            time.sleep(3)
         else:
             logging.error("Login failed. Check credentials or element locators.")
-        time.sleep(2)
-        
+            
     except Exception as e:
-        try:
-            logging.error(f"[ERROR] Failed to find and click the login button: {e}")
-        except Exception as e:
-            logging.error(f"[ERROR] Failed to find and click the login button: {e}")
-
+        logging.error(f"[ERROR] Test execution failed: {str(e)}")
+        
     finally:
         driver.quit()
 

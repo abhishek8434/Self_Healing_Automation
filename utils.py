@@ -33,3 +33,13 @@ def log_warning(message):
 def log_error(message):
     logging.error(message)
     print(f"[ERROR] {message}")
+
+def capture_screenshot(driver, name):
+    try:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"screenshots/{name}_{timestamp}.png"
+        os.makedirs("screenshots", exist_ok=True)
+        driver.save_screenshot(filename)
+        log_info(f"Screenshot saved: {filename}")
+    except Exception as e:
+        log_error(f"Failed to capture screenshot: {e}")

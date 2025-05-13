@@ -1,0 +1,6 @@
+class Config:
+    ELEMENT_TIMEOUT = 10
+    RETRY_ATTEMPTS = 3
+    RETRY_DELAY = 1
+    SCREENSHOT_ON_FAILURE = True
+    LOG_LEVEL = "INFO"
