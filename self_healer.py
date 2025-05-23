@@ -343,3 +343,107 @@ class SelfHealer:
             
         except Exception as e:
             log_warning(f"Failed to save successful locator: {e}")
+
+    def _smart_retry(self, locator: Dict, context: str = None) -> Optional[object]:
+        # Add smart retry logic with dynamic delay
+        base_delay = self.retry_delay
+        for attempt in range(self.max_retries):
+            try:
+                # Try different strategies based on previous failures
+                if attempt == 1:
+                    # Try with relaxed matching
+                    modified_locator = self._relax_locator_constraints(locator)
+                    element = self._find(modified_locator)
+                elif attempt == 2:
+                    # Try with parent context
+                    element = self._find_with_parent_context(locator)
+                else:
+                    element = self._find(locator)
+                    
+                if element and element.is_displayed():
+                    return element
+                    
+            except Exception as e:
+                log_warning(f"Attempt {attempt + 1} failed: {e}")
+                time.sleep(base_delay * (attempt + 1))  # Exponential backoff
+        return None
+
+    def _find_by_visual_attributes(self, element_type: str, context: Dict) -> Optional[object]:
+        """Find elements using visual attributes like position and appearance."""
+        try:
+            # Get viewport dimensions
+            viewport_width = self.driver.execute_script("return window.innerWidth;")
+            viewport_height = self.driver.execute_script("return window.innerHeight;")
+            
+            # Find elements in the expected region
+            if element_type == 'submit_button':
+                # Usually at the bottom of forms
+                xpath = f"//button[contains(@class, 'submit') and position() > {viewport_height/2}]"
+                return self.driver.find_element(By.XPATH, xpath)
+                
+            return None
+        except Exception as e:
+            log_warning(f"Visual detection failed: {e}")
+            return None
+
+    def _generate_dynamic_locators(self, element_type: str, context: Dict) -> List[Dict]:
+        """Generate dynamic locators based on element type and context."""
+        locators = []
+        if element_type == 'input':
+            # Generate semantic locators
+            locators.extend([
+                {"type": By.CSS_SELECTOR, "value": f"input[type='{context.get('input_type', 'text')}']:not([hidden])"},
+                {"type": By.CSS_SELECTOR, "value": f"input[placeholder*='{context.get('placeholder', '')}' i]"},
+                {"type": By.XPATH, "value": f"//input[contains(translate(@aria-label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{context.get('label', '').lower()}')]"},
+            ])
+        return locators
+
+    def _optimize_locator_search(self, locators: List[Dict]) -> List[Dict]:
+        """Optimize locator search order based on historical success rates."""
+        if not hasattr(self, '_locator_stats'):
+            self._locator_stats = {}
+        
+        def get_score(locator):
+            key = f"{locator['type']}:{locator['value']}"
+            stats = self._locator_stats.get(key, {'success': 0, 'total': 0})
+            if stats['total'] == 0:
+                return 0
+            return stats['success'] / stats['total']
+        
+        return sorted(locators, key=get_score, reverse=True)
+
+    def _update_locator_model(self, successful_locator: Dict, context: Dict) -> None:
+        """Update the ML model with successful locator patterns."""
+        if not hasattr(self, '_locator_patterns'):
+            self._locator_patterns = []
+        
+        pattern = {
+            'locator': successful_locator,
+            'context': context,
+            'timestamp': datetime.datetime.now().isoformat()
+        }
+        self._locator_patterns.append(pattern)
+        
+        # Periodically train the model
+        if len(self._locator_patterns) >= 100:
+            self._train_locator_model()
+
+    def _load_healing_config(self) -> Dict:
+        """Load healing configuration from file."""
+        config_file = "healing_config.json"
+        try:
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            log_warning(f"Could not load healing config: {e}")
+        
+        return {
+            'max_retries': 3,
+            'retry_delay': 1,
+            'healing_strategies': ['relaxed_match', 'parent_context', 'visual_detection'],
+            'ai_model_config': {
+                'temperature': 0.3,
+                'max_tokens': 150
+            }
+        }
